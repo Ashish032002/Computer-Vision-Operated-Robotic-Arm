@@ -125,10 +125,5 @@ We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
 
-Special thanks to:
-- Prof. Soubhagya Sankar Barpanda
-- Dr. Ajay Dagar
-- VIT-AP University
-- The MediaPipe and OpenCV communities
+
