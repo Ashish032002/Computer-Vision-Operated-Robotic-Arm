@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hand Landmark Tracking</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <style>
+        video, canvas {
+            transform: scaleX(-1);
+            display: block;
+            margin: 0 auto;
+        }
+        canvas {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%) scaleX(-1);
+        }
+        #debug {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <video id="input-video"></video>
+    <canvas id="output-canvas" width="1280" height="720"></canvas>
+    <div id="led-status">LED is off</div>
+    <div id="debug"></div>
+
+    <script>
+        const videoElement = document.getElementById('input-video');
+        const canvasElement = document.getElementById('output-canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const debugElement = document.getElementById('debug');
+        let ledStatus = false;
+        let currAngles = {
+            thumb: 0,
+            index: 0,
+            middle: 0,
+            ring: 0,
+            pinky: 0,
+        };
+
+        function onResults(results) {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FFFF', lineWidth: 2});
+                drawLandmarks(canvasCtx, landmarks, {color: '#FF0000', lineWidth: 2});
+                
+                checkIndexFingerGesture(landmarks);
+                const angles = calculateFingerAngles(landmarks);
+                updateFirebase(angles);
+                
+                debugElement.textContent = JSON.stringify(currAngles, null, 2);
+            } else {
+                debugElement.textContent = 'No hand detected';
+            }
+            
+            canvasCtx.restore();
+        }
+
+        function checkIndexFingerGesture(landmarks) {
+            const indexFingerTip = landmarks[8];
+            const indexFingerDip = landmarks[7];
+            const wrist = landmarks[0];
+            
+            if (indexFingerTip.y < indexFingerDip.y && indexFingerTip.y < wrist.y) {
+                updateLedStatus("off");
+            } else {
+                updateLedStatus("on");
+            }
+        }
+
+        async function updateLedStatus(status) {
+            if (ledStatus !== status) {
+                ledStatus = status;
+                document.getElementById('led-status').innerText = `LED is ${status}`;
+                try {
+                    const response = await fetch('/update_led', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ led: status })
+                    });
+                    if (!response.ok) throw new Error('LED update failed');
+                } catch (error) {
+                    console.error('Error updating LED:', error);
+                }
+            }
+        }
+
+        function calculateFingerAngles(landmarks) {
+            return {
+                thumb: calculateAngle(landmarks[2], landmarks[2], landmarks[4]),
+                index: calculateAngle(landmarks[0], landmarks[6], landmarks[8]),
+                middle: calculateAngle(landmarks[0], landmarks[10], landmarks[12]),
+                ring: calculateAngle(landmarks[0], landmarks[14], landmarks[16]),
+                pinky: calculateAngle(landmarks[0], landmarks[18], landmarks[20])
+            };
+        }
+
+        function calculateAngle(joint1, joint2, joint3) {
+            const radians = Math.atan2(joint3.y - joint2.y, joint3.x - joint2.x) -
+                            Math.atan2(joint1.y - joint2.y, joint1.x - joint2.x);
+            let angle = Math.abs(radians * 180.0 / Math.PI);
+            if (angle > 180.0) angle = 360 - angle;
+            return Math.round(angle);
+        }
+
+        async function updateFirebase(angles) {
+            const updatedAngles = {};
+            for (const finger in angles) {
+                if (Math.abs(angles[finger] - currAngles[finger]) > 4) {
+                    currAngles[finger] = angles[finger];
+                    updatedAngles[finger] = angles[finger];
+                }
+                else{
+                    updatedAngles[finger] = currAngles[finger];
+                }
+            }
+            
+            if (Object.keys(updatedAngles).length > 0) {
+                try {
+                    const response = await fetch('/update_angles', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ angles: updatedAngles })
+                    });
+                    if (!response.ok) throw new Error('Angle update failed');
+                } catch (error) {
+                    console.error('Error updating angles:', error);
+                }
+            }
+        }
+
+        const hands = new Hands({locateFile: (file) => {
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+        }});
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 0,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        hands.onResults(onResults);
+
+        const camera = new Camera(videoElement, {
+            onFrame: async () => {
+                await hands.send({image: videoElement});
+            },
+            width: 1280,
+            height: 720
+        });
+
+        camera.start().catch(error => {
+            console.error('Failed to start camera:', error);
+        });
+    </script>
+</body>
+</html>
