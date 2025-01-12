@@ -80,18 +80,18 @@ pip install -r requirements.txt
 
 ### Local System
 ```bash
-python local_system.py
+python hand-tracking-control.py
 ```
 
 ### Distributed System
 1. Start Flask server:
 ```bash
-python app.py
+python flask-backend.py
 ```
 
 2. Run Firebase listener:
 ```bash
-python firebase_reader.py
+python firebase-reader.py
 ```
 
 3. Open web interface in browser:
@@ -105,13 +105,6 @@ The system demonstrates excellent performance metrics:
 - Response time: ~100ms (local) / ~200-300ms (distributed)
 - Gesture accuracy: 95%+
 - Servo precision: ±1°
-
-## 👥 Contributors
-
-- Subhrajay Changkakoti
-- Samarth Gayakhe
-- Ashish Singh
-- Krishna
 
 ## 📚 Documentation
 
