@@ -54,8 +54,8 @@ The system operates in two modes:
 
 1. Clone the repository
 ```bash
-git clone https://github.com/yourusername/dexvisio.git
-cd dexvisio
+git clone https://github.com/Ashish032002/Computer-Vision-Operated-Robotic-Arm.git
+cd Computer-Vision-Operated-Robotic-Arm
 ```
 
 2. Install Python dependencies
