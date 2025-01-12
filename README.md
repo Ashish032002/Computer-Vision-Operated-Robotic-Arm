@@ -112,7 +112,7 @@ Detailed documentation including system architecture, component specifications, 
 
 ## 🤝 Contributing
 
-We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) before submitting pull requests.
+We welcome contributions! 
 
 ## 📄 License
 
